@@ -14,7 +14,9 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: 'esnext',
-      sourcemap: true
+      sourcemap: true,
+      outDir: 'public', // <-- build para a pasta public
+      emptyOutDir: true // limpa a pasta public antes do build
     },
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
