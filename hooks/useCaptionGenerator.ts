@@ -1,18 +1,15 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import { Caption, VideoSource } from '../types';
 
-async function getBackendPort(): Promise<number> {
-    return 8000; // Porta fixa para backend
-}
+const BACKEND_URL = 'https://backendnoxsub.vercel.app/api';
 
 // Função para testar se o backend está disponível
-async function testBackendConnection(port: number): Promise<boolean> {
+async function testBackendConnection(): Promise<boolean> {
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
 
-        // Usa o backendPort dinâmico
-        const response = await fetch(`http://localhost:${port}/api/health`, {
+        const response = await fetch(`${BACKEND_URL}/health`, {
             method: 'GET',
             mode: 'cors',
             credentials: 'omit',
@@ -26,7 +23,7 @@ async function testBackendConnection(port: number): Promise<boolean> {
         clearTimeout(timeoutId);
         return response.ok || response.status === 200;
     } catch (error) {
-        console.warn(`Backend na porta ${port} não está disponível:`, error);
+        console.warn(`Backend remoto não está disponível:`, error);
         if (error instanceof TypeError && error.message.includes('CORS')) {
             console.info('Servidor pode estar rodando mas com problema de CORS');
             return true;
@@ -89,21 +86,14 @@ export const useCaptionGenerator = (
             setLoadingText('Verificando conexão com o servidor...');
             setStepId(null);
 
-            // Criar novo AbortController para esta requisição
             abortControllerRef.current = new AbortController();
 
             try {
-                const backendPort = await getBackendPort();
-
                 // Testar conexão com o backend antes de prosseguir
                 setLoadingText('Verificando servidor backend...');
-                const isBackendAvailable = await testBackendConnection(backendPort);
+                const isBackendAvailable = await testBackendConnection();
                 if (!isBackendAvailable) {
-                    throw new Error(`Não foi possível conectar ao servidor backend na porta ${backendPort}. ` +
-                        'Possíveis problemas:\n' +
-                        '1. Servidor não está rodando\n' +
-                        '2. Problema de CORS - verifique a configuração do servidor\n' +
-                        '3. Porta bloqueada por firewall');
+                    throw new Error(`Não foi possível conectar ao servidor backend remoto.`);
                 }
 
                 setLoadingText('Baixando vídeo...');
@@ -132,35 +122,11 @@ export const useCaptionGenerator = (
                 // Iniciar timer
                 timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
 
-                // Configurar EventSource para status updates
-                try {
-                    eventSourceRef.current = new EventSource(
-                        `http://localhost:${backendPort}/api/transcribe-status?session_id=${sessionId}`
-                    );
-
-                    eventSourceRef.current.onmessage = (e) => {
-                        try {
-                            const data = JSON.parse(e.data);
-                            setLoadingText(data.status || 'Processando...');
-                            setStepId(data.stepId || null);
-                        } catch {
-                            setLoadingText(e.data || 'Processando...');
-                            setStepId(null);
-                        }
-                    };
-
-                    eventSourceRef.current.onerror = (error) => {
-                        console.warn('EventSource error:', error);
-                        eventSourceRef.current?.close();
-                    };
-                } catch (sseError) {
-                    console.warn('Não foi possível estabelecer conexão de status em tempo real:', sseError);
-                    setLoadingText('Processando transcrição...');
-                }
+                // Não há suporte a EventSource no Vercel Python, então pula status SSE
 
                 // Fazer a requisição de transcrição
                 setLoadingText('Enviando vídeo para transcrição...');
-                const backendResponse = await fetch(`http://localhost:${backendPort}/api/transcribe`, {
+                const backendResponse = await fetch(`${BACKEND_URL}/transcribe`, {
                     method: 'POST',
                     body: formData,
                     mode: 'cors',
@@ -199,9 +165,8 @@ export const useCaptionGenerator = (
                     errorMsg = 'Operação cancelada pelo usuário';
                 } else if (e.name === 'TypeError' && (e.message.includes('Failed to fetch') || e.message.includes('CORS'))) {
                     errorMsg = 'Erro de conectividade ou CORS. Verifique se:\n' +
-                        '1. O backend está rodando na porta correta\n' +
-                        '2. O servidor backend permite requisições CORS\n' +
-                        '3. Não há bloqueio de firewall';
+                        '1. O backend está rodando e acessível\n' +
+                        '2. O servidor backend permite requisições CORS';
                 } else if (e.message.includes('não está rodando') || e.message.includes('não foi possível conectar')) {
                     errorMsg = e.message;
                 } else {
@@ -241,12 +206,10 @@ export const useCaptionGenerator = (
                 throw new Error('Vídeo ou legendas não disponíveis.');
             }
 
-            const backendPort = await getBackendPort();
-
             // Testar conexão antes de prosseguir
-            const isBackendAvailable = await testBackendConnection(backendPort);
+            const isBackendAvailable = await testBackendConnection();
             if (!isBackendAvailable) {
-                throw new Error(`Servidor backend não está disponível na porta ${backendPort}.`);
+                throw new Error(`Servidor backend não está disponível.`);
             }
 
             const response = await fetch(videoSource.url);
@@ -265,7 +228,7 @@ export const useCaptionGenerator = (
             formData.append('captions', captionsFile);
             formData.append('quality', quality);
 
-            const backendResponse = await fetch(`http://localhost:${backendPort}/api/render`, {
+            const backendResponse = await fetch(`${BACKEND_URL}/render`, {
                 method: 'POST',
                 body: formData,
                 mode: 'cors',
@@ -281,7 +244,7 @@ export const useCaptionGenerator = (
             const json = await backendResponse.json();
             const filename = json.filename;
             if (!filename) throw new Error('Arquivo legendado não gerado.');
-            const fileUrl = `http://localhost:${backendPort}/files/${filename}`;
+            const fileUrl = `${BACKEND_URL}/files/${filename}`;
 
             // Faz o download via GET
             const fileResponse = await fetch(fileUrl);
