@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import { Caption, VideoSource } from '../types';
 
+<<<<<<< HEAD
 const BACKEND_URL = 'https://backendnoxsub.onrender.com';
 
 
@@ -20,6 +21,17 @@ const API_BASE_URL = isProduction
  * em vez de receber a porta como parâmetro.
  * @returns {Promise<boolean>} Verdadeiro se o backend responder, falso caso contrário.
  */
+=======
+// Define as URLs do backend para desenvolvimento e produção.
+// `import.meta.env.DEV` é uma variável especial do Vite que é `true` durante o desenvolvimento.
+const isDevelopment = import.meta.env.DEV;
+
+// A URL de produção foi baseada na sua última mensagem. A porta 8000 para desenvolvimento foi lida do seu arquivo `backend_port.json`.
+const BACKEND_URL = isDevelopment
+    ? 'http://localhost:8000/api'
+    : 'https://backendnoxsub.onrender.com/api';
+// Função para testar se o backend está disponível
+>>>>>>> 76f280b (Alteracao front urls)
 async function testBackendConnection(): Promise<boolean> {
     try {
         const controller = new AbortController();
@@ -42,9 +54,13 @@ async function testBackendConnection(): Promise<boolean> {
         // response.ok é verdadeiro para status na faixa 200-299, o que é mais limpo.
         return response.ok;
     } catch (error) {
+<<<<<<< HEAD
         console.warn(`A conexão com o backend em ${API_BASE_URL} falhou:`, error);
         // A sua lógica original para erros de CORS é mantida.
         // Um erro de CORS pode indicar que o servidor está no ar, mas mal configurado.
+=======
+        console.warn(`Backend em ${BACKEND_URL} não está disponível:`, error);
+>>>>>>> 76f280b (Alteracao front urls)
         if (error instanceof TypeError && error.message.includes('CORS')) {
             console.info('O servidor parece estar online, mas há um problema de configuração de CORS.');
             return true;
@@ -116,7 +132,7 @@ export const useCaptionGenerator = (
                 setLoadingText('Verificando servidor backend...');
                 const isBackendAvailable = await testBackendConnection();
                 if (!isBackendAvailable) {
-                    throw new Error(`Não foi possível conectar ao servidor backend remoto.`);
+                    throw new Error(`Não foi possível conectar ao servidor backend em ${BACKEND_URL}.`);
                 }
 
                 setLoadingText('Baixando vídeo...');
