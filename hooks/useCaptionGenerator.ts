@@ -3,13 +3,31 @@ import { Caption, VideoSource } from '../types';
 
 const BACKEND_URL = 'https://backendnoxsub.onrender.com';
 
-// Função para testar se o backend está disponível
+
+// É uma boa prática centralizar a URL do seu backend
+// para alternar facilmente entre desenvolvimento e produção.
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Use a URL do Render em produção, e localhost para desenvolvimento.
+// A porta 8000 para desenvolvimento foi baseada no seu arquivo backend_port.json.
+const API_BASE_URL = isProduction
+    ? 'https://backendnoxsub.onrender.com'
+    : 'http://localhost:8000';
+
+/**
+ * Testa se a conexão com o backend está ativa.
+ * A função agora usa uma URL base configurada (API_BASE_URL)
+ * em vez de receber a porta como parâmetro.
+ * @returns {Promise<boolean>} Verdadeiro se o backend responder, falso caso contrário.
+ */
 async function testBackendConnection(): Promise<boolean> {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos de timeout
 
-        const response = await fetch(`${BACKEND_URL}/health`, {
+        const healthCheckUrl = `${API_BASE_URL}/api/health`;
+
+        const response = await fetch(healthCheckUrl, {
             method: 'GET',
             mode: 'cors',
             credentials: 'omit',
@@ -21,16 +39,21 @@ async function testBackendConnection(): Promise<boolean> {
         });
 
         clearTimeout(timeoutId);
-        return response.ok || response.status === 200;
+        // response.ok é verdadeiro para status na faixa 200-299, o que é mais limpo.
+        return response.ok;
     } catch (error) {
-        console.warn(`Backend remoto não está disponível:`, error);
+        console.warn(`A conexão com o backend em ${API_BASE_URL} falhou:`, error);
+        // A sua lógica original para erros de CORS é mantida.
+        // Um erro de CORS pode indicar que o servidor está no ar, mas mal configurado.
         if (error instanceof TypeError && error.message.includes('CORS')) {
-            console.info('Servidor pode estar rodando mas com problema de CORS');
+            console.info('O servidor parece estar online, mas há um problema de configuração de CORS.');
             return true;
         }
         return false;
     }
 }
+
+
 
 export const useCaptionGenerator = (
     videoSource: VideoSource | null,
