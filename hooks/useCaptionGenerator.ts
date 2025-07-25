@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import { Caption, VideoSource } from '../types';
 
-const BACKEND_URL = 'https://backendnoxsub.vercel.app/api';
+const BACKEND_URL = 'https://backendnoxsub.onrender.com';
 
 // Função para testar se o backend está disponível
 async function testBackendConnection(): Promise<boolean> {
